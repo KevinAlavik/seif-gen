@@ -67,8 +67,8 @@
                         for (let i = 0; i < pixels.length; i += 4) {
                             const pixelIndex = Math.floor(i / 4) * 3;
                             chunkData[pixelIndex] = pixels[i];
-                            chunkData[pixelIndex + 1] = pixels[i + 1];
-                            chunkData[pixelIndex + 2] = pixels[i + 2];
+                            chunkData[pixelIndex + 2] = pixels[i + 1];
+                            chunkData[pixelIndex + 3] = pixels[i + 2];
                         }
 
                         const blob = new Blob([buffer, chunkData]);
