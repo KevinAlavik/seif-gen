@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to SEIF</title>
+</head>
+
+<body>
+    <input type="file" id="fileInput" accept="image/jpeg, image/png">
+    <button onclick="convert()">Convert</button>
+
+    <script>
+        function convert() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const image = new Image();
+                    image.onload = function () {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(image, 0, 0, image.width, image.height);
+
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const pixels = imageData.data;
+
+                        const SEIF_MAGIC = "SEIF";
+                        const SEIF_FLAGS = 0;
+                        const SEIF_ENCODING = 0x02;
+                        const SEIF_SIGNATURE = "HTMLSEIF";
+                        const SEIF_CHUNK_COUNT = 1;
+                        const SEIF_CHUNK_SIZE = image.width * image.height;
+
+                        const bufferSize = 4 + 1 + 1 + 8 + 4 + 4 + 4 + 4 + 4 + 4;
+                        const buffer = new ArrayBuffer(bufferSize);
+                        const view = new DataView(buffer);
+                        let offset = 0;
+
+                        writeStringToBuffer(view, offset, SEIF_MAGIC, 4);
+                        offset += 4;
+                        view.setUint8(offset++, SEIF_FLAGS);
+                        view.setUint8(offset++, SEIF_ENCODING);
+                        writeStringToBuffer(view, offset, SEIF_SIGNATURE, 8);
+                        offset += 8;
+
+                        view.setUint32(offset, image.width, true);
+                        offset += 4;
+                        view.setUint32(offset, image.height, true);
+                        offset += 4;
+                        view.setUint32(offset, SEIF_CHUNK_COUNT, true);
+                        offset += 4;
+                        view.setUint32(offset, SEIF_CHUNK_SIZE, true);
+                        offset += 4;
+                        view.setUint32(offset, image.width, true);
+                        offset += 4;
+                        view.setUint32(offset, image.height, true);
+                        offset += 4;
+
+                        const chunkData = new Uint8Array(image.width * image.height * 3);
+                        for (let i = 0; i < pixels.length; i += 4) {
+                            const pixelIndex = Math.floor(i / 4) * 3;
+                            chunkData[pixelIndex] = pixels[i];
+                            chunkData[pixelIndex + 1] = pixels[i + 1];
+                            chunkData[pixelIndex + 2] = pixels[i + 2];
+                        }
+
+                        const blob = new Blob([buffer, chunkData]);
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = "image.sief";
+                        document.body.appendChild(a);
+                        a.click();
+                    };
+                    image.src = e.target.result;
+                };
+
+                reader.readAsDataURL(file);
+            } else {
+                alert('Please select an image file.');
+            }
+        }
+
+        function writeStringToBuffer(view, offset, string, length) {
+            for (let i = 0; i < length; i++) {
+                if (i < string.length) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                } else {
+                    view.setUint8(offset + i, 0);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
