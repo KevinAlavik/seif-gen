@@ -17,26 +17,49 @@
             const file = fileInput.files[0];
 
             if (file) {
+                console.log("File selected:", file.name);
+
                 const reader = new FileReader();
 
                 reader.onload = function (e) {
+                    console.log("File reader loaded.");
+
                     const image = new Image();
                     image.onload = function () {
+                        console.log("Image loaded:", image.width, "x", image.height);
+
                         const canvas = document.createElement('canvas');
                         canvas.width = image.width;
                         canvas.height = image.height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(image, 0, 0, image.width, image.height);
 
+                        console.log("Canvas created and image drawn.");
+
                         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         const pixels = imageData.data;
 
+                        console.log("Image data retrieved from canvas:", pixels.length, "pixels.");
+
+                        let hasAlpha = false;
+
+                        for (let i = 3; i < pixels.length; i += 4) {
+                            if (pixels[i] < 255) {
+                                hasAlpha = true;
+                                console.log("Image has alpha channel.");
+                                break;
+                            }
+                        }
+
                         const SEIF_MAGIC = "SEIF";
                         const SEIF_FLAGS = 0;
-                        const SEIF_ENCODING = 0x02;
+                        const SEIF_ENCODING = hasAlpha ? 0x01 : 0x02;
+                        const encoding_size = hasAlpha ? 4 : 3;
                         const SEIF_SIGNATURE = "HTMLSEIF";
                         const SEIF_CHUNK_COUNT = 1;
                         const SEIF_CHUNK_SIZE = image.width * image.height;
+
+                        console.log("SEIF header constants set.");
 
                         const bufferSize = 4 + 1 + 1 + 8 + 4 + 4 + 4 + 4 + 4 + 4;
                         const buffer = new ArrayBuffer(bufferSize);
@@ -63,13 +86,24 @@
                         view.setUint32(offset, image.height, true);
                         offset += 4;
 
-                        const chunkData = new Uint8Array(image.width * image.height * 3);
+                        console.log("SEIF header written to buffer.");
+
+                        const chunkData = new Uint8Array(image.width * image.height * encoding_size);
                         for (let i = 0; i < pixels.length; i += 4) {
-                            const pixelIndex = Math.floor(i / 4) * 3;
-                            chunkData[pixelIndex + 2] = pixels[i + 1];
-                            chunkData[pixelIndex + 1] = pixels[i + 0];
-                            chunkData[pixelIndex + 0] = pixels[i + 2];
+                            const pixelIndex = Math.floor(i / 4) * encoding_size;
+                            if (hasAlpha) {
+                                chunkData[pixelIndex + 0] = pixels[i + 0];
+                                chunkData[pixelIndex + 3] = pixels[i + 3];
+                                chunkData[pixelIndex + 2] = pixels[i + 2];
+                                chunkData[pixelIndex + 1] = pixels[i + 1];
+                            } else {
+                                chunkData[pixelIndex + 0] = pixels[i + 2];
+                                chunkData[pixelIndex + 2] = pixels[i + 1];
+                                chunkData[pixelIndex + 1] = pixels[i + 0];
+                            }
                         }
+
+                        console.log("Pixel data converted for SEIF format.");
 
                         const blob = new Blob([buffer, chunkData]);
                         const url = URL.createObjectURL(blob);
@@ -78,10 +112,13 @@
                         a.download = "image.seif";
                         document.body.appendChild(a);
                         a.click();
+
+                        console.log("SEIF file generated and download triggered.");
                     };
                     image.src = e.target.result;
                 };
 
+                console.log("Reading file...");
                 reader.readAsDataURL(file);
             } else {
                 alert('Please select an image file.');
