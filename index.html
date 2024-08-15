@@ -43,6 +43,7 @@
 
                         let hasAlpha = false;
 
+                        // Check for alpha channel
                         for (let i = 3; i < pixels.length; i += 4) {
                             if (pixels[i] < 255) {
                                 hasAlpha = true;
@@ -61,6 +62,7 @@
 
                         console.log("SEIF header constants set.");
 
+                        // SEIF Header and Meta (Magic, Flags, Encoding, Signature, Width, Height, Chunk Count, Chunk Size)
                         const bufferSize = 4 + 1 + 1 + 8 + 4 + 4 + 4 + 4 + 4 + 4;
                         const buffer = new ArrayBuffer(bufferSize);
                         const view = new DataView(buffer);
@@ -88,23 +90,26 @@
 
                         console.log("SEIF header written to buffer.");
 
+                        // SEIF Chunk Data (Pixel Data)
                         const chunkData = new Uint8Array(image.width * image.height * encoding_size);
                         for (let i = 0; i < pixels.length; i += 4) {
                             const pixelIndex = Math.floor(i / 4) * encoding_size;
-                            if (hasAlpha) {
-                                chunkData[pixelIndex + 0] = pixels[i + 0];
-                                chunkData[pixelIndex + 3] = pixels[i + 3];
-                                chunkData[pixelIndex + 2] = pixels[i + 2];
-                                chunkData[pixelIndex + 1] = pixels[i + 1];
-                            } else {
-                                chunkData[pixelIndex + 0] = pixels[i + 2];
-                                chunkData[pixelIndex + 2] = pixels[i + 1];
-                                chunkData[pixelIndex + 1] = pixels[i + 0];
+
+                            if (SEIF_ENCODING === 0x02) { // RGB Encoding
+                                chunkData[pixelIndex + 0] = pixels[i + 0]; // R
+                                chunkData[pixelIndex + 1] = pixels[i + 1]; // G
+                                chunkData[pixelIndex + 2] = pixels[i + 2]; // B
+                            } else if (SEIF_ENCODING === 0x01) { // RGBA Encoding
+                                chunkData[pixelIndex + 0] = pixels[i + 0]; // R
+                                chunkData[pixelIndex + 1] = pixels[i + 1]; // G
+                                chunkData[pixelIndex + 2] = pixels[i + 2]; // B
+                                chunkData[pixelIndex + 3] = pixels[i + 3]; // A
                             }
                         }
 
                         console.log("Pixel data converted for SEIF format.");
 
+                        // Create Blob and trigger download
                         const blob = new Blob([buffer, chunkData]);
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
